@@ -1,0 +1,72 @@
+version: "3.8"
+services:
+  prometheus:
+    image: linuxtips/prometheus_alpine
+    volumes:
+      - ./conf/prometheus/:/etc/prometheus/
+      - ./conf/prometheus_data:/var/lib/prometheus
+    networks:
+      - backend
+    ports:
+      - "9090:9090"
+  node_exporter:
+    image: linuxtips/node-exporter_alpine
+    hostname: `{{.Node.ID}}`
+    volumes:
+      - /proc:/usr/proc
+      - /sys:/usr/sys
+      - /:/rootfs
+    deploy:
+      mode: global
+    networks:
+      - backend
+    ports:
+      - "9100:9100"
+  alertmanager:
+    image: linuxtips/alertmanager_alpine
+    volumes:
+      - ./conf/alertmanager/:/etc/alertmanager/
+    networks:
+      - backend
+    ports:
+      - "9093:9093"
+  cadvisor:
+    image: google/cadvisor:latest
+    hostname: `{{.Node.ID}}`
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - backend
+    deploy:
+      mode: global
+    ports:
+      - "8080:8080"
+  grafana:
+    image: nopp/grafana_alpine
+    depends_on:
+      - prometheus
+    volumes:
+      - ./conf/grafana/grafana.db:/grafana/data/grafana.db
+    env_file:
+      - grafana.config
+    networks:
+      - backend
+      - frontend
+    ports:
+      - 3000:3000
+
+# If you already have a RocketChat instance running, just comment the code of rocketchat, mongo and mongo-init-replica services bellow
+
+  rocketchat:
+    image: rocketchat/rocketchat.chat:latest
+    volumes:
+      - rocket_uploads:/app/uploads
+    environments:
+      - PORT=3080
+      - ROOT_URL=http://`{{.Node.ID}}`:3080
+      - MONGO_URL=mongodb://mongo:27017/rocketchat
+      
